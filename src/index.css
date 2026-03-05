@@ -20,7 +20,7 @@ body::before {
   left: -50%;
   width: 200%;
   height: 200%;
-  background: 
+  background:
     radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.05) 0%, transparent 40%),
     radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.08) 0%, transparent 35%),
     radial-gradient(circle at 20% 80%, rgba(59, 130, 246, 0.05) 0%, transparent 40%);
@@ -30,14 +30,51 @@ body::before {
 }
 
 @keyframes mesh-rotate {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .glass {
-  @apply bg-white/[0.03] backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)] transition-all duration-300;
+  @apply bg-white/[0.03] backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0, 0, 0, 0.3)] transition-all duration-300;
 }
 
 .glass-hover {
-  @apply hover:bg-white/[0.07] hover:border-white/20 hover:shadow-[0_8px_32px_rgba(34,197,94,0.1)];
+  @apply hover:bg-white/[0.07] hover:border-white/20 hover:shadow-[0_8px_32px_rgba(34, 197, 94, 0.1)];
+}
+
+/* Force dark theme rendering identically on PDF prints */
+@media print {
+  @page {
+    margin: 1.5cm;
+  }
+
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  body {
+    background-color: #030303 !important;
+    color: #f4f4f5 !important;
+  }
+
+  /* Force explicit sizing on recharts SVG wrappers so they don't collapse */
+  .recharts-responsive-container {
+    width: 100% !important;
+    height: 350px !important;
+    min-height: 350px !important;
+  }
+
+  .recharts-wrapper svg {
+    width: 100% !important;
+    height: 100% !important;
+  }
 }

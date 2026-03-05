@@ -150,7 +150,7 @@ const TopNav = () => {
   ];
 
   return (
-    <nav className="sticky top-0 z-50 w-full glass border-b border-white/5 backdrop-blur-2xl">
+    <nav className="sticky top-0 z-50 w-full glass border-b border-white/5 backdrop-blur-2xl print:hidden">
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2 font-bold text-lg tracking-tight hover:opacity-80 transition-opacity">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-purple-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
@@ -478,7 +478,7 @@ ${report.diagnosis?.issues[0] || "None - Perfect Optimization"}
             <Clock className="w-4 h-4" /> Analyzed on {format(new Date(report.timestamp!), 'PPP p')}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 print:hidden">
           <button
             onClick={handleCopyReport}
             className="px-4 py-2 bg-purple-500/10 text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 hover:border-purple-500/40 rounded-xl text-sm font-bold transition-all"
@@ -598,7 +598,7 @@ ${report.diagnosis?.issues[0] || "None - Perfect Optimization"}
                 stroke="#3b82f6"
                 strokeWidth={2}
                 dot={false}
-                animationDuration={2000}
+                isAnimationActive={false}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -629,6 +629,7 @@ ${report.diagnosis?.issues[0] || "None - Perfect Optimization"}
                   ]
                 }}
                 options={{
+                  animation: false,
                   responsive: true,
                   maintainAspectRatio: false,
                   scales: {
@@ -661,6 +662,7 @@ ${report.diagnosis?.issues[0] || "None - Perfect Optimization"}
                   outerRadius={80}
                   paddingAngle={5}
                   dataKey="value"
+                  isAnimationActive={false}
                 >
                   {successRateData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
@@ -726,6 +728,7 @@ ${report.diagnosis?.issues[0] || "None - Perfect Optimization"}
                   ]
                 }}
                 options={{
+                  animation: false,
                   responsive: true,
                   maintainAspectRatio: false,
                   interaction: { mode: 'index', intersect: false },
