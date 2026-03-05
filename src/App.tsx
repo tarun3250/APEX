@@ -13,9 +13,13 @@ import {
   Clock,
   Database,
   ChevronRight,
-  Info
+  Info,
+  Rocket,
+  ZapIcon,
+  ServerCrash
 } from 'lucide-react';
-import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useParams, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   analyzeApi,
   getHistory,
@@ -29,7 +33,7 @@ import {
 } from './services/api';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  BarChart, Bar, Cell, PieChart, Pie
+  BarChart, Bar, Cell, PieChart, Pie, Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis
 } from 'recharts';
 import {
   Chart as ChartJS,
@@ -64,10 +68,17 @@ function cn(...inputs: ClassValue[]) {
 
 // --- Components ---
 
-const Card = ({ children, className, ...props }: { children: React.ReactNode, className?: string, [key: string]: any }) => (
-  <div className={cn("glass rounded-2xl p-6", className)} {...props}>
-    {children}
-  </div>
+const Card = ({ children, className, delay = 0, ...props }: { children: React.ReactNode, className?: string, delay?: number, [key: string]: any }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.5, delay, ease: "easeOut" }}
+    className={cn("glass rounded-2xl p-6 hover:shadow-[0_8px_32px_rgba(34,197,94,0.1)] transition-shadow duration-300 relative overflow-hidden", className)}
+    {...props}
+  >
+    <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+    <div className="relative z-10">{children}</div>
+  </motion.div>
 );
 
 const Badge = ({ children, variant = 'default' }: { children: React.ReactNode, variant?: 'default' | 'success' | 'warning' | 'error' }) => {
@@ -130,6 +141,54 @@ const ScoreCircle = ({ score }: { score: number }) => {
   );
 };
 
+const TopNav = () => {
+  const location = useLocation();
+  const navItems = [
+    { path: '/', label: 'Analysis', icon: ZapIcon },
+    { path: '/compare', label: 'Compare APIs', icon: Activity },
+    { path: '/history', label: 'History', icon: History }
+  ];
+
+  return (
+    <nav className="sticky top-0 z-50 w-full glass border-b border-white/5 backdrop-blur-2xl">
+      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+        <Link to="/" className="flex items-center gap-2 font-bold text-lg tracking-tight hover:opacity-80 transition-opacity">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-purple-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+            <Activity className="w-5 h-5 text-black" />
+          </div>
+          <span className="bg-gradient-to-r from-emerald-400 to-emerald-200 bg-clip-text text-transparent">APEX</span>
+        </Link>
+
+        <div className="flex items-center gap-1">
+          {navItems.map(item => {
+            const isActive = location.pathname === item.path;
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={cn(
+                  "relative px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2",
+                  isActive ? "text-emerald-400" : "text-zinc-400 hover:text-white"
+                )}
+              >
+                <item.icon className="w-4 h-4" />
+                {item.label}
+                {isActive && (
+                  <motion.div
+                    layoutId="navbar-indicator"
+                    className="absolute inset-0 border-b-2 border-emerald-400 rounded-lg bg-emerald-400/10 -z-10"
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                  />
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    </nav>
+  );
+};
+
 // --- Pages ---
 
 const Dashboard = () => {
@@ -141,6 +200,12 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+
+  const presets = [
+    { title: "Standard JSON API", url: "https://jsonplaceholder.typicode.com/posts", icon: Globe, color: "text-blue-400" },
+    { title: "High-Traffic Simulation", url: "https://jsonplaceholder.typicode.com/comments", icon: ZapIcon, color: "text-emerald-400", req: 100, conc: 10 },
+    { title: "Slow External API", url: "https://httpstat.us/200?sleep=1000", icon: Clock, color: "text-amber-400" }
+  ];
 
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -157,15 +222,24 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      <div className="text-center space-y-4">
-        <h1 className="text-5xl font-bold tracking-tight bg-gradient-to-r from-white to-zinc-500 bg-clip-text text-transparent">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="max-w-4xl mx-auto space-y-8"
+    >
+      <motion.div
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className="text-center space-y-4"
+      >
+        <h1 className="text-5xl font-bold tracking-tight bg-gradient-to-r from-emerald-400 via-white to-purple-500 bg-clip-text text-transparent drop-shadow-sm">
           APEX Performance Advisor
         </h1>
         <p className="text-zinc-400 text-lg max-w-2xl mx-auto">
           API Performance Evaluation & Examination. Analyze latency, payload size, and security headers with automated optimization recommendations.
         </p>
-      </div>
+      </motion.div>
 
       <Card className="p-8">
         <form onSubmit={handleAnalyze} className="space-y-6">
@@ -249,7 +323,7 @@ const Dashboard = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:bg-zinc-800 disabled:text-zinc-500 text-black font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2 group"
+            className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:bg-zinc-800 disabled:text-zinc-500 text-black font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2 group shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:shadow-[0_0_30px_rgba(16,185,129,0.3)]"
           >
             {loading ? (
               <>
@@ -266,22 +340,48 @@ const Dashboard = () => {
         </form>
       </Card>
 
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="grid grid-cols-1 md:grid-cols-3 gap-4"
+      >
+        {presets.map((p, i) => (
+          <button
+            key={i}
+            onClick={() => {
+              setUrl(p.url);
+              setMethod('GET');
+              if (p.req) setRequests(p.req);
+              if (p.conc) setConcurrency(p.conc);
+            }}
+            className="glass-hover rounded-xl p-4 flex flex-col items-start text-left transition-all border border-white/5 bg-white/[0.02] group"
+          >
+            <p className={cn("text-sm font-bold mb-2 flex items-center gap-2", p.color)}>
+              <p.icon className="w-4 h-4 group-hover:scale-110 transition-transform" />
+              {p.title}
+            </p>
+            <p className="text-xs text-zinc-500 font-mono truncate w-full">{p.url}</p>
+          </button>
+        ))}
+      </motion.div>
+
       <div className="grid grid-cols-3 gap-6">
-        <Card className="flex flex-col items-center text-center space-y-2">
+        <Card delay={0.4} className="flex flex-col items-center text-center space-y-2">
           <div className="p-3 bg-blue-500/10 rounded-2xl text-blue-400">
             <BarChart3 className="w-6 h-6" />
           </div>
           <h3 className="font-semibold">Latency Analysis</h3>
           <p className="text-xs text-zinc-500">P95, Median, and Average response times.</p>
         </Card>
-        <Card className="flex flex-col items-center text-center space-y-2">
+        <Card delay={0.5} className="flex flex-col items-center text-center space-y-2">
           <div className="p-3 bg-emerald-500/10 rounded-2xl text-emerald-400">
             <Shield className="w-6 h-6" />
           </div>
           <h3 className="font-semibold">Security Audit</h3>
           <p className="text-xs text-zinc-500">HSTS, CSP, and CORS header validation.</p>
         </Card>
-        <Card className="flex flex-col items-center text-center space-y-2">
+        <Card delay={0.6} className="flex flex-col items-center text-center space-y-2">
           <div className="p-3 bg-amber-500/10 rounded-2xl text-amber-400">
             <Zap className="w-6 h-6" />
           </div>
@@ -289,7 +389,7 @@ const Dashboard = () => {
           <p className="text-xs text-zinc-500">Throughput and error rate under stress.</p>
         </Card>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
@@ -337,6 +437,32 @@ const ReportView = () => {
     URL.revokeObjectURL(url);
   };
 
+  const handleCopyReport = () => {
+    if (!report) return;
+    const summary = `
+🚀 APEX Performance Report
+=========================
+URL: ${report.url}
+Method: ${report.method}
+Grade: ${report.grade}
+Score: ${report.score}%
+
+📊 Core Metrics
+--------------
+Average Latency: ${report.metrics.avgLatency.toFixed(0)}ms
+P95 Latency: ${report.metrics.p95Latency.toFixed(0)}ms
+Throughput: ${report.metrics.throughput} RPS
+Success Rate: ${((report.metrics.successful / report.metrics.totalRequests) * 100).toFixed(1)}%
+
+⚠️ Top Issue Detected
+-------------------
+${report.diagnosis?.issues[0] || "None - Perfect Optimization"}
+    `.trim();
+
+    navigator.clipboard.writeText(summary);
+    alert("Report summary copied to clipboard!");
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex items-start justify-between">
@@ -353,6 +479,12 @@ const ReportView = () => {
           </p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={handleCopyReport}
+            className="px-4 py-2 bg-purple-500/10 text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 hover:border-purple-500/40 rounded-xl text-sm font-bold transition-all"
+          >
+            Copy Summary
+          </button>
           <button
             onClick={handleExportJson}
             className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-sm font-medium transition-colors"
@@ -868,36 +1000,110 @@ const ComparisonView = () => {
           </form>
         </Card>
       ) : (
-        <div className="space-y-8">
-          <Card className="bg-emerald-500/10 border-emerald-500/20 p-6 flex items-center justify-between">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="space-y-8"
+        >
+          <Card className="bg-emerald-500/10 border-emerald-500/20 p-6 flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-emerald-500 rounded-2xl text-black">
-                <CheckCircle2 className="w-6 h-6" />
+              <div className="p-3 bg-emerald-500 rounded-2xl text-black shadow-[0_0_20px_rgba(16,185,129,0.4)]">
+                <CheckCircle2 className="w-8 h-8" />
               </div>
               <div>
-                <h2 className="text-xl font-bold">Comparison Complete</h2>
+                <h2 className="text-xl font-bold text-emerald-400">Comparison Complete</h2>
                 <p className="text-emerald-400/80 text-sm">{result.comparisonSummary}</p>
               </div>
             </div>
-            <button onClick={() => setResult(null)} className="text-zinc-400 hover:text-white text-sm font-medium">Reset</button>
+            <button onClick={() => setResult(null)} className="px-6 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-sm font-medium transition-colors border border-white/5">
+              Reset Comparison
+            </button>
+          </Card>
+
+          {/* Radar Chart Visual Comparison */}
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-6 flex items-center gap-2 text-zinc-300">
+              <Activity className="w-5 h-5 text-purple-400" /> Multi-dimensional Analysis
+            </h3>
+            <div className="h-[350px] w-full flex items-center justify-center">
+              <ResponsiveContainer width="100%" height="100%">
+                <RadarChart
+                  cx="50%" cy="50%" outerRadius="70%"
+                  data={[
+                    {
+                      subject: 'Latency',
+                      A: result.apiA.metrics.breakdown?.latencyScore || 0,
+                      B: result.apiB.metrics.breakdown?.latencyScore || 0,
+                      fullMark: 100
+                    },
+                    {
+                      subject: 'Stability',
+                      A: result.apiA.metrics.breakdown?.stabilityScore || 0,
+                      B: result.apiB.metrics.breakdown?.stabilityScore || 0,
+                      fullMark: 100
+                    },
+                    {
+                      subject: 'Payload',
+                      A: result.apiA.metrics.breakdown?.payloadScore || 0,
+                      B: result.apiB.metrics.breakdown?.payloadScore || 0,
+                      fullMark: 100
+                    },
+                    {
+                      subject: 'Security',
+                      A: result.apiA.metrics.breakdown?.securityScore || 0,
+                      B: result.apiB.metrics.breakdown?.securityScore || 0,
+                      fullMark: 100
+                    },
+                    {
+                      subject: 'Throughput',
+                      A: result.apiA.metrics.breakdown?.throughputScore || 0,
+                      B: result.apiB.metrics.breakdown?.throughputScore || 0,
+                      fullMark: 100
+                    }
+                  ]}
+                >
+                  <PolarGrid stroke="#27272a" />
+                  <PolarAngleAxis dataKey="subject" tick={{ fill: '#a1a1aa', fontSize: 12 }} />
+                  <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: '#52525b' }} stroke="#27272a" />
+                  <Radar name="API A" dataKey="A" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} />
+                  <Radar name="API B" dataKey="B" stroke="#a855f7" fill="#a855f7" fillOpacity={0.3} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
+                    itemStyle={{ color: '#e4e4e7' }}
+                  />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex justify-center gap-8 mt-4">
+              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-500" /><span className="text-xs text-zinc-400">Endpoint A</span></div>
+              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-purple-500" /><span className="text-xs text-zinc-400">Endpoint B</span></div>
+            </div>
           </Card>
 
           <div className="grid md:grid-cols-2 gap-8">
             {[
               { id: 'apiA', data: result.apiA, color: 'blue' },
               { id: 'apiB', data: result.apiB, color: 'purple' }
-            ].map((api) => (
-              <div key={api.id} className={cn(
-                "space-y-4 relative",
-                result.winner === api.id && "ring-2 ring-emerald-500 rounded-3xl p-1"
-              )}>
+            ].map((api, index) => (
+              <motion.div
+                key={api.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 + (index * 0.1) }}
+                className={cn(
+                  "space-y-4 relative transition-all duration-500",
+                  result.winner === api.id && "ring-2 ring-emerald-500 rounded-3xl p-1 shadow-[0_0_30px_rgba(16,185,129,0.15)]"
+                )}
+              >
                 {result.winner === api.id && (
-                  <div className="absolute -top-3 -right-3 bg-emerald-500 text-black text-[10px] font-black px-3 py-1 rounded-full shadow-lg z-10">WINNER</div>
+                  <div className="absolute -top-3 -right-3 bg-emerald-500 text-black text-[10px] font-black px-4 py-1.5 rounded-full shadow-lg z-10 flex items-center gap-1">
+                    <Zap className="w-3 h-3" /> WINNER
+                  </div>
                 )}
                 <Card className={cn("p-6", result.winner === api.id && "bg-emerald-500/5")}>
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
-                      <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center font-bold", `bg-${api.color}-500/10 text-${api.color}-400`)}>
+                      <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg", `bg-${api.color}-500/20 text-${api.color}-400 border border-${api.color}-500/30`)}>
                         {api.id === 'apiA' ? 'A' : 'B'}
                       </div>
                       <h3 className="font-mono text-sm font-bold truncate max-w-[200px]">{api.data.url}</h3>
@@ -906,26 +1112,26 @@ const ComparisonView = () => {
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-zinc-900/50 p-4 rounded-xl border border-white/5">
+                    <div className="bg-zinc-900/50 p-4 rounded-xl border border-white/5 hover:bg-zinc-800/50 transition-colors">
                       <p className="text-[10px] font-bold text-zinc-500 uppercase">Avg Latency</p>
-                      <p className="text-xl font-bold">{api.data.metrics.avgLatency.toFixed(0)}ms</p>
+                      <p className="text-2xl font-bold">{api.data.metrics.avgLatency.toFixed(0)}<span className="text-sm font-normal text-zinc-500">ms</span></p>
                     </div>
-                    <div className="bg-zinc-900/50 p-4 rounded-xl border border-white/5">
+                    <div className="bg-zinc-900/50 p-4 rounded-xl border border-white/5 hover:bg-zinc-800/50 transition-colors">
                       <p className="text-[10px] font-bold text-zinc-500 uppercase">P95 Latency</p>
-                      <p className="text-xl font-bold">{api.data.metrics.p95Latency.toFixed(0)}ms</p>
+                      <p className="text-2xl font-bold">{api.data.metrics.p95Latency.toFixed(0)}<span className="text-sm font-normal text-zinc-500">ms</span></p>
                     </div>
-                    <div className="bg-zinc-900/50 p-4 rounded-xl border border-white/5">
+                    <div className="bg-zinc-900/50 p-4 rounded-xl border border-white/5 hover:bg-zinc-800/50 transition-colors">
                       <p className="text-[10px] font-bold text-zinc-500 uppercase">Throughput</p>
-                      <p className="text-xl font-bold">{api.data.metrics.throughput} RPS</p>
+                      <p className="text-2xl font-bold">{api.data.metrics.throughput} <span className="text-sm font-normal text-zinc-500">RPS</span></p>
                     </div>
-                    <div className="bg-zinc-900/50 p-4 rounded-xl border border-white/5">
+                    <div className="bg-zinc-900/50 p-4 rounded-xl border border-white/5 hover:bg-zinc-800/50 transition-colors">
                       <p className="text-[10px] font-bold text-zinc-500 uppercase">Stability</p>
-                      <p className="text-xl font-bold">{((api.data.metrics.successful / api.data.metrics.totalRequests) * 100).toFixed(1)}%</p>
+                      <p className="text-2xl font-bold">{((api.data.metrics.successful / api.data.metrics.totalRequests) * 100).toFixed(1)}<span className="text-sm font-normal text-zinc-500">%</span></p>
                     </div>
                   </div>
 
-                  <div className="mt-6 pt-6 border-t border-white/5">
-                    <p className="text-xs font-bold text-zinc-500 uppercase mb-4">Score Breakdown</p>
+                  <div className="mt-8 pt-6 border-t border-white/5">
+                    <p className="text-xs font-bold text-zinc-500 uppercase mb-4 flex items-center gap-2"><BarChart3 className="w-4 h-4" /> Score Breakdown</p>
                     <div className="space-y-3">
                       {api.data.metrics.breakdown && Object.entries(api.data.metrics.breakdown).map(([key, val]) => (
                         <div key={key} className="space-y-1">
@@ -933,18 +1139,23 @@ const ComparisonView = () => {
                             <span>{key.replace('Score', '')}</span>
                             <span>{val}/100</span>
                           </div>
-                          <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
-                            <div className="h-full bg-emerald-500" style={{ width: `${val}%` }} />
+                          <div className="h-1.5 bg-zinc-900 rounded-full overflow-hidden">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${val}%` }}
+                              transition={{ duration: 1, ease: "easeOut" }}
+                              className={cn("h-full", `bg-${api.color}-500`)}
+                            />
                           </div>
                         </div>
                       ))}
                     </div>
                   </div>
                 </Card>
-              </div>
+              </motion.div>
             ))}
           </div>
-        </div>
+        </motion.div>
       )}
     </div>
   );
@@ -1014,45 +1225,19 @@ const HistoryView = () => {
 
 const Layout = ({ children }: { children: React.ReactNode }) => {
   return (
-    <div className="min-h-screen flex">
-      {/* Sidebar */}
-      <aside className="w-64 border-r border-white/5 flex flex-col p-6 space-y-8 shrink-0">
-        <div className="flex items-center gap-3 px-2">
-          <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-black">
-            <Zap className="w-6 h-6 fill-current" />
-          </div>
-          <span className="font-bold text-xl tracking-tight">APEX</span>
-        </div>
+    <div className="min-h-screen text-zinc-100 flex flex-col relative overflow-hidden">
+      {/* Decorative Background Elements */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-emerald-500/10 blur-[120px] rounded-full pointer-events-none" />
+      <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-blue-500/10 blur-[150px] rounded-full pointer-events-none" />
+      <div className="absolute top-1/2 left-0 w-[400px] h-[400px] bg-purple-500/10 blur-[150px] rounded-full pointer-events-none" />
 
-        <nav className="flex-1 space-y-2">
-          <Link to="/" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 text-zinc-400 hover:text-white transition-colors">
-            <Activity className="w-5 h-5" />
-            <span className="font-medium">Dashboard</span>
-          </Link>
-          <Link to="/compare" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 text-zinc-400 hover:text-white transition-colors">
-            <Zap className="w-5 h-5" />
-            <span className="font-medium">Comparison</span>
-          </Link>
-          <Link to="/history" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 text-zinc-400 hover:text-white transition-colors">
-            <History className="w-5 h-5" />
-            <span className="font-medium">History</span>
-          </Link>
-        </nav>
-
-        <div className="mt-auto pt-6 border-t border-white/5 space-y-4">
-          <div className="p-4 bg-zinc-900/50 rounded-2xl border border-white/5">
-            <p className="text-[10px] font-bold text-zinc-500 uppercase mb-2">System Status</p>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-              <span className="text-xs font-medium">Analyzer Online</span>
-            </div>
-          </div>
-        </div>
-      </aside>
+      <TopNav />
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto p-12">
-        {children}
+      <main className="flex-1 max-w-6xl w-full mx-auto p-6 md:p-8 relative z-10 animate-in fade-in duration-700">
+        <AnimatePresence mode="wait">
+          {children}
+        </AnimatePresence>
       </main>
     </div>
   );
@@ -1061,14 +1246,21 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 export default function App() {
   return (
     <Router>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/compare" element={<ComparisonView />} />
-          <Route path="/history" element={<HistoryView />} />
-          <Route path="/report/:id" element={<ReportView />} />
-        </Routes>
-      </Layout>
+      <AppContent />
     </Router>
+  );
+}
+
+function AppContent() {
+  const location = useLocation();
+  return (
+    <Layout>
+      <Routes location={location}>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/compare" element={<ComparisonView />} />
+        <Route path="/history" element={<HistoryView />} />
+        <Route path="/report/:id" element={<ReportView />} />
+      </Routes>
+    </Layout>
   );
 }
