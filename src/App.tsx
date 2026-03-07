@@ -9,6 +9,9 @@ import {
   CheckCircle2,
   ArrowRight,
   Loader2,
+  Download,
+  Search,
+  ShieldCheck,
   Globe,
   Clock,
   Database,
@@ -22,9 +25,12 @@ import {
   Trash2,
   Key,
   FileJson,
-  Download,
+  ShieldAlert,
+  Archive,
+  Terminal,
   BarChart as BarChartIcon
 } from 'lucide-react';
+import axios from 'axios';
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -160,6 +166,7 @@ const TopNav = () => {
   const navItems = [
     { path: '/', label: 'Analysis', icon: ZapIcon },
     { path: '/analytics', label: 'Analytics', icon: BarChartIcon },
+    { path: '/uptime', label: 'Uptime', icon: Clock },
     { path: '/compare', label: 'Compare APIs', icon: Activity },
     { path: '/history', label: 'History', icon: History }
   ];
@@ -211,6 +218,7 @@ const Dashboard = () => {
   const [method, setMethod] = useState('GET');
   const [concurrency, setConcurrency] = useState(5);
   const [requests, setRequests] = useState(50);
+  const [geoRegion, setGeoRegion] = useState('None');
   const [simulateSlowNetwork, setSimulateSlowNetwork] = useState(false);
   const [headers, setHeaders] = useState<{ key: string; value: string }[]>([{ key: '', value: '' }]);
   const [body, setBody] = useState('');
@@ -235,7 +243,16 @@ const Dashboard = () => {
         return acc;
       }, {} as Record<string, string>);
 
-      const report = await analyzeApi(url, method, concurrency, requests, simulateSlowNetwork, headerObj, body || undefined);
+      const report = await analyzeApi(
+        url,
+        method,
+        concurrency,
+        requests,
+        simulateSlowNetwork,
+        headerObj,
+        body || undefined,
+        geoRegion
+      );
       navigate(`/report/${report.id}`);
     } catch (err: any) {
       setError(err.response?.data?.error || err.message);
@@ -336,7 +353,7 @@ const Dashboard = () => {
             </label>
           </div>
 
-          <div className="pt-2">
+          <div className="pt-2 flex items-center justify-between">
             <button
               type="button"
               onClick={() => setShowAdvanced(!showAdvanced)}
@@ -345,6 +362,21 @@ const Dashboard = () => {
               <Settings2 className={cn("w-3.5 h-3.5 transition-transform duration-300", showAdvanced && "rotate-90")} />
               {showAdvanced ? "Hide Advanced Settings" : "Configure Headers & Body"}
             </button>
+
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Geo Simulation:</span>
+              <select
+                value={geoRegion}
+                onChange={(e) => setGeoRegion(e.target.value)}
+                className="bg-zinc-900/50 border border-zinc-800 rounded-lg px-2 py-1 text-[10px] font-bold text-emerald-400 outline-none"
+              >
+                <option>None</option>
+                <option>US-East</option>
+                <option>Europe</option>
+                <option>Asia</option>
+                <option>Australia</option>
+              </select>
+            </div>
           </div>
 
           <AnimatePresence>
@@ -521,18 +553,18 @@ const ReportView = () => {
   if (loading) return <div className="flex items-center justify-center h-96"><Loader2 className="w-8 h-8 animate-spin text-emerald-500" /></div>;
   if (!report) return <div>Report not found.</div>;
 
-  const latencyData = report.metrics.latencyDistribution.map((l, i) => ({ name: i, value: l }));
+  const latencyData = (report.metrics.latencyDistribution || []).map((l, i) => ({ name: i, value: l }));
   const successRateData = [
-    { name: 'Success', value: report.metrics.successful, color: '#10b981' },
-    { name: 'Failed', value: report.metrics.failed, color: '#ef4444' },
+    { name: 'Success', value: report.metrics.successful || 0, color: '#10b981' },
+    { name: 'Failed', value: report.metrics.failed || 0, color: '#ef4444' },
   ];
 
   const percentileData = [
-    { label: 'P50 (Median)', value: `${report.metrics.p50}ms` },
-    { label: 'P75', value: `${report.metrics.p75}ms` },
-    { label: 'P90', value: `${report.metrics.p90}ms` },
-    { label: 'P95', value: `${report.metrics.p95}ms` },
-    { label: 'P99', value: `${report.metrics.p99}ms` },
+    { label: 'P50 (Median)', value: `${report.metrics.p50 || 0}ms` },
+    { label: 'P75', value: `${report.metrics.p75 || 0}ms` },
+    { label: 'P90', value: `${report.metrics.p90 || 0}ms` },
+    { label: 'P95', value: `${report.metrics.p95 || 0}ms` },
+    { label: 'P99', value: `${report.metrics.p99 || 0}ms` },
   ];
 
   const handleExportJson = () => {
@@ -649,14 +681,12 @@ ${report.diagnosis?.issues[0] || "None - Perfect Optimization"}
         </div>
       </div>
 
-      {
-        report.metrics.coldStart?.coldStartDetected && (
-          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-start gap-3 text-amber-400 text-sm mt-4">
-            <AlertCircle className="w-5 h-5 shrink-0" />
-            {report.metrics.coldStart.message}
-          </div>
-        )
-      }
+      {report.metrics.coldStart?.coldStartDetected && (
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-start gap-3 text-amber-400 text-sm mt-4">
+          <AlertCircle className="w-5 h-5 shrink-0" />
+          {report.metrics.coldStart.message}
+        </div>
+      )}
 
       <div className="grid grid-cols-12 gap-8 mt-8">
         {/* Score Breakdown */}
@@ -725,17 +755,6 @@ ${report.diagnosis?.issues[0] || "None - Perfect Optimization"}
           </div>
         </Card>
 
-        <Card className="col-span-12 lg:col-span-12">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {percentileData.map((p, i) => (
-              <div key={i} className="bg-zinc-900/50 p-4 rounded-xl border border-white/5 text-center">
-                <p className="text-[10px] uppercase font-bold text-zinc-500 mb-1">{p.label}</p>
-                <p className="text-2xl font-bold text-white">{p.value}</p>
-              </div>
-            ))}
-          </div>
-        </Card>
-
         {/* Latency Chart */}
         <Card className="col-span-12 lg:col-span-8 h-[400px]">
           <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
@@ -762,48 +781,6 @@ ${report.diagnosis?.issues[0] || "None - Perfect Optimization"}
             </LineChart>
           </ResponsiveContainer>
         </Card>
-
-        {/* Request Timeline Visualization (Chart.js) */}
-        {report.metrics.latencyTimeline && report.metrics.latencyTimeline.length > 0 && (
-          <Card className="col-span-12 lg:col-span-12 h-[300px]">
-            <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
-              <Activity className="w-5 h-5 text-purple-400" /> Request Timeline
-            </h3>
-            <div className="h-[200px] w-full">
-              <ChartJSLine
-                data={{
-                  labels: report.metrics.latencyTimeline.map((_, i) => `Req ${i + 1}`),
-                  datasets: [
-                    {
-                      label: 'Latency (ms)',
-                      data: report.metrics.latencyTimeline,
-                      borderColor: '#a855f7',
-                      backgroundColor: 'rgba(168, 85, 247, 0.1)',
-                      borderWidth: 2,
-                      fill: true,
-                      tension: 0.4,
-                      pointRadius: 0,
-                      pointHoverRadius: 4
-                    }
-                  ]
-                }}
-                options={{
-                  animation: false,
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  scales: {
-                    x: { display: false },
-                    y: {
-                      grid: { color: '#1f2937' },
-                      border: { dash: [4, 4] }
-                    }
-                  },
-                  plugins: { legend: { display: false } }
-                }}
-              />
-            </div>
-          </Card>
-        )}
 
         {/* Availability Pie */}
         <Card className="col-span-12 lg:col-span-4 h-[400px] flex flex-col">
@@ -953,30 +930,31 @@ ${report.diagnosis?.issues[0] || "None - Perfect Optimization"}
           </Card>
         )}
 
+        {/* Optimization Suggestions */}
         <div className="col-span-12 lg:col-span-6 space-y-4">
           <h3 className="text-lg font-semibold flex items-center gap-2">
             <Zap className="w-5 h-5 text-amber-400" /> Optimization Suggestions
           </h3>
-          {report.suggestions.length > 0 ? (
-            <div className="space-y-3">
-              {report.suggestions.map((s, i) => (
-                <div key={i} className="glass p-4 rounded-xl flex gap-4 items-start">
-                  <div className="p-2 bg-amber-500/10 rounded-lg text-amber-400 shrink-0">
-                    <AlertCircle className="w-4 h-4" />
-                  </div>
-                  <p className="text-sm text-zinc-300 leading-relaxed">{s}</p>
+          <div className="space-y-3">
+            {report.suggestions.map((s: string, i: number) => (
+              <div key={i} className="glass p-4 rounded-xl flex gap-4 items-start">
+                <div className="p-2 bg-amber-500/10 rounded-lg text-amber-400 shrink-0">
+                  <AlertCircle className="w-4 h-4" />
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="glass p-8 rounded-xl text-center space-y-2">
-              <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
-              <p className="font-semibold">Perfect Optimization!</p>
-              <p className="text-sm text-zinc-500">No major issues detected in this endpoint.</p>
-            </div>
-          )}
+                <p className="text-sm text-zinc-300 leading-relaxed">{s}</p>
+              </div>
+            ))}
+            {report.suggestions.length === 0 && (
+              <div className="glass p-8 rounded-xl text-center space-y-2">
+                <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
+                <p className="font-semibold">Perfect Optimization!</p>
+                <p className="text-sm text-zinc-500">No major issues detected in this endpoint.</p>
+              </div>
+            )}
+          </div>
         </div>
 
+        {/* Security Audit */}
         <div className="col-span-12 lg:col-span-6 space-y-4">
           <h3 className="text-lg font-semibold flex items-center gap-2">
             <Shield className="w-5 h-5 text-emerald-400" /> Security Audit
@@ -1015,34 +993,87 @@ ${report.diagnosis?.issues[0] || "None - Perfect Optimization"}
           )}
         </div>
 
-        <div className="col-span-12 lg:col-span-6 space-y-4">
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            <Globe className="w-5 h-5 text-purple-400" /> Header Diagnostics
-          </h3>
-          <div className="glass rounded-xl overflow-hidden">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-white/5 text-zinc-400 font-medium">
-                <tr>
-                  <th className="px-4 py-3">Header</th>
-                  <th className="px-4 py-3">Value</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {Object.entries(report.headers).slice(0, 10).map(([k, v]) => (
-                  <tr key={k} className="hover:bg-white/5 transition-colors">
-                    <td className="px-4 py-3 font-mono text-xs text-zinc-400">{k}</td>
-                    <td className="px-4 py-3 font-mono text-xs truncate max-w-[200px]">{v}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="p-3 text-center bg-white/5">
-              <p className="text-[10px] text-zinc-500 uppercase font-bold">Showing top 10 headers</p>
+        {/* Performance Cards */}
+        <div className="col-span-12 grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Rate Limit Diagnostics */}
+          <Card className={cn("p-6", report.rateLimit?.rateLimitDetected ? "border-red-500/30 bg-red-500/5" : "border-white/5")}>
+            <h3 className="text-zinc-400 text-sm font-medium mb-4 uppercase tracking-wider italic flex items-center gap-2">
+              <ShieldAlert className={cn("w-4 h-4", report.rateLimit?.rateLimitDetected ? "text-red-400" : "text-zinc-500")} />
+              Rate Limit Diagnostics
+            </h3>
+            {report.rateLimit?.rateLimitDetected ? (
+              <div className="space-y-4">
+                <div className="p-3 bg-red-400/10 rounded-lg border border-red-400/20">
+                  <p className="text-red-400 text-sm font-medium">⚠️ Throttling Detected: Multiple HTTP 429 errors occurred during analysis.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-zinc-500 uppercase font-bold">Limit</span>
+                    <p className="text-xl font-bold font-mono text-zinc-100">{report.rateLimit.limitHeader || 'N/A'}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-zinc-500 uppercase font-bold">Remaining</span>
+                    <p className="text-xl font-bold font-mono text-zinc-100">{report.rateLimit.remaining || 'N/A'}</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-4 text-center">
+                <CheckCircle2 className="w-10 h-10 text-emerald-400/20 mb-2" />
+                <p className="text-zinc-500 text-sm">No rate limiting detected during this session.</p>
+              </div>
+            )}
+          </Card>
+
+          {/* Payload Efficiency */}
+          <Card className="p-6 border-white/5">
+            <h3 className="text-zinc-400 text-sm font-medium mb-4 uppercase tracking-wider italic flex items-center gap-2">
+              <Archive className="w-4 h-4 text-emerald-400" /> Payload Efficiency
+            </h3>
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] text-zinc-500 uppercase font-bold block mb-1">Average Size</span>
+                  <p className="text-2xl font-bold text-zinc-100 italic">{(report.metrics.avgSize / 1024).toFixed(2)} <span className="text-xs text-zinc-400 not-italic">KB</span></p>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] text-zinc-500 uppercase font-bold block mb-1">Max Payload</span>
+                  <p className="text-lg font-bold text-zinc-300">{(report.payloadAnalysis?.maxSize / 1024).toFixed(2)} KB</p>
+                </div>
+              </div>
+
+              {/* Visual Progress Bar */}
+              <div className="space-y-2">
+                <div className="flex justify-between text-[10px] font-bold uppercase text-zinc-500">
+                  <span>Efficiency Status</span>
+                  <span className={cn(report.metrics.avgSize > 500000 ? "text-red-400" : "text-emerald-400")}>
+                    {report.metrics.avgSize > 1000000 ? 'Poor' : report.metrics.avgSize > 300000 ? 'Fair' : 'Excellent'}
+                  </span>
+                </div>
+                <div className="h-2 w-full bg-zinc-800 rounded-full overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${Math.min(100, (report.metrics.avgSize / 1000000) * 100)}%` }}
+                    className={cn("h-full", report.metrics.avgSize > 500000 ? "bg-red-400" : "bg-emerald-400")}
+                  />
+                </div>
+              </div>
             </div>
-          </div>
+          </Card>
         </div>
       </div>
-    </div >
+
+      {/* PDF Export Floating Button */}
+      <div className="fixed bottom-8 right-8 z-[60] print:hidden">
+        <button
+          onClick={() => window.open(`/api/report/pdf/${report.id}`, '_blank')}
+          className="flex items-center gap-2 bg-emerald-500 text-black px-6 py-3 rounded-full font-bold shadow-2xl shadow-emerald-500/40 hover:bg-emerald-400 hover:scale-105 transition-all group"
+        >
+          <Download className="w-5 h-5 group-hover:bounce" />
+          Export Professional PDF
+        </button>
+      </div>
+    </div>
   );
 };
 
@@ -1535,11 +1566,97 @@ function AppContent() {
         <Routes location={location}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/analytics" element={<AnalyticsView />} />
+          <Route path="/uptime" element={<UptimeView />} />
           <Route path="/compare" element={<ComparisonView />} />
           <Route path="/history" element={<HistoryView />} />
           <Route path="/report/:id" element={<ReportView />} />
         </Routes>
       </Layout>
     </>
+  );
+}
+
+// --- NEW: Uptime Monitor View ---
+function UptimeView() {
+  const [uptimeData, setUptimeData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [url, setUrl] = useState('');
+
+  const fetchUptime = async () => {
+    if (!url) return;
+    setLoading(true);
+    try {
+      const res = await axios.get(`/api/uptime?url=${url}`);
+      setUptimeData(res.data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-8 max-w-4xl mx-auto">
+      <div className="flex flex-col gap-2">
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-zinc-500 bg-clip-text text-transparent italic">
+          Availability Monitor
+        </h1>
+        <p className="text-zinc-400">Track real-time uptime and incident history for your API endpoints.</p>
+      </div>
+
+      <Card className="flex gap-4 p-4">
+        <input
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="Enter API URL to check uptime..."
+          className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-emerald-500/50 transition-colors"
+        />
+        <button onClick={fetchUptime} className="px-6 py-3 bg-emerald-500 text-black font-bold rounded-xl hover:bg-emerald-400 transition-colors flex items-center gap-2">
+          <Search className="w-4 h-4" /> Check
+        </button>
+      </Card>
+
+      {uptimeData && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-bottom-4 duration-500">
+          <Card className="p-6 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
+              <ShieldCheck className="w-24 h-24" />
+            </div>
+            <h3 className="text-zinc-400 text-sm font-medium mb-4 uppercase tracking-wider italic">Uptime Score</h3>
+            <div className="flex items-baseline gap-2">
+              <span className="text-5xl font-bold text-emerald-400">{uptimeData.uptimePercentage}%</span>
+              <span className="text-zinc-500 text-sm font-medium">Availability</span>
+            </div>
+          </Card>
+
+          <Card className="p-6">
+            <h3 className="text-zinc-400 text-sm font-medium mb-4 uppercase tracking-wider italic">Last Downtime</h3>
+            <div className="text-2xl font-semibold text-zinc-100">
+              {uptimeData.lastDowntime ? new Date(uptimeData.lastDowntime).toLocaleString() : 'No downtime detected'}
+            </div>
+          </Card>
+
+          <Card className="col-span-full p-6">
+            <h3 className="text-zinc-400 text-sm font-medium mb-4 uppercase tracking-wider italic">Incident Logs</h3>
+            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+              {uptimeData.logs.map((log: any, i: number) => (
+                <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/5">
+                  <div className="flex items-center gap-3">
+                    <div className={cn("w-2 h-2 rounded-full", log.success ? "bg-emerald-400 shadow-sm shadow-emerald-400/50" : "bg-red-400 shadow-sm shadow-red-400/50")} />
+                    <span className="text-sm font-medium text-zinc-300">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="text-xs font-bold font-mono text-zinc-500">{log.latency}ms</span>
+                    <span className={cn("text-xs font-bold px-2 py-0.5 rounded uppercase", log.success ? "bg-emerald-400/10 text-emerald-400" : "bg-red-400/10 text-red-400")}>
+                      {log.status}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
+    </div>
   );
 }

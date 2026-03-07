@@ -12,6 +12,11 @@ import { getLatencyTimeline } from "./backend/services/timelineService.js";
 import { detectColdStart } from "./backend/services/coldStartDetector.js";
 import { analyzeSecurityHeaders } from "./backend/services/securityAuditService.js";
 import { getPerformanceTrends } from "./backend/services/trendService.js";
+import { analyzeRateLimits } from "./backend/services/rateLimitService.js";
+import { analyzePayloadSizes } from "./backend/services/payloadAnalyzer.js";
+import { startUptimeMonitor, getUptimeStats } from "./backend/services/uptimeMonitor.js";
+import { generatePDFReport } from "./backend/services/reportGenerator.js";
+import { getAIAdvice } from "./backend/services/aiAdvisor.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,7 +34,10 @@ db.exec(`
     metrics TEXT,
     suggestions TEXT,
     headers TEXT,
-    diagnosis TEXT
+    diagnosis TEXT,
+    rateLimit TEXT,
+    payloadAnalysis TEXT,
+    geoRegion TEXT
   )
 `);
 
@@ -58,6 +66,18 @@ async function analyzeApi(url: string, method: string = "GET", concurrency: numb
         // Network Simulation: Delay injection
         if (reqBody.simulateSlowNetwork) {
           await new Promise(resolve => setTimeout(resolve, 200 + Math.random() * 300));
+        }
+
+        // Geo Latency Simulation
+        const geoDelays: Record<string, number> = {
+          'US-East': 40,
+          'Europe': 120,
+          'Asia': 220,
+          'Australia': 300
+        };
+        const geoDelay = geoDelays[reqBody.geoRegion] || 0;
+        if (geoDelay > 0) {
+          await new Promise(resolve => setTimeout(resolve, geoDelay));
         }
 
         const response = await axios({
@@ -120,9 +140,11 @@ async function analyzeApi(url: string, method: string = "GET", concurrency: numb
     failed,
     avgLatency,
     avgSize,
-    throughput
+    throughput,
+    breakdown: {} as any
   };
   const { score, grade, breakdown } = calculateAdvancedScore(metricsData, headers);
+  metricsData.breakdown = breakdown;
 
   // --- NEW: Analytics Services Integration ---
   const latencyTimeline = getLatencyTimeline(latencies);
@@ -142,35 +164,28 @@ async function analyzeApi(url: string, method: string = "GET", concurrency: numb
     suggestions.push(...diagnosis.recommendations);
   }
 
-  const metrics = {
-    totalRequests: results.length,
-    successful,
-    failed,
-    avgLatency,
-    medianLatency,
-    p95Latency,
-    ...percentiles,
-    minLatency,
-    maxLatency,
-    throughput,
-    avgSize,
-    totalTime,
-    latencyDistribution: latencies,
-    latencyTimeline,
-    coldStart,
-    securityAudit,
-    breakdown
-  };
+  // --- NEW: Production Features Logic ---
+  const rateLimit = analyzeRateLimits(results);
+  const payloadAnalysis = analyzePayloadSizes(results);
+  const aiAdvice = getAIAdvice(metricsData, diagnosis); // Changed 'metrics' to 'metricsData' as 'metrics' is not defined here
+
+  if (rateLimit.recommendation) suggestions.push(rateLimit.recommendation);
+  suggestions.push(...payloadAnalysis.recommendations);
+  suggestions.push(...aiAdvice.advice);
 
   return {
     url,
     method,
     score,
     grade,
-    metrics,
+    metrics: metricsData,
     suggestions,
     headers: JSON.stringify(headers),
-    diagnosis
+    diagnosis,
+    rateLimit,
+    payloadAnalysis,
+    geoRegion: reqBody.geoRegion || 'None',
+    aiAdvice: aiAdvice.advice.join('\n')
   };
 }
 
@@ -189,8 +204,8 @@ async function startServer() {
     try {
       const report = await analyzeApi(url, method, concurrency, requests, req.body);
       const stmt = db.prepare(`
-        INSERT INTO history (url, method, score, grade, metrics, suggestions, headers, diagnosis)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO history (url, method, score, grade, metrics, suggestions, headers, diagnosis, rateLimit, payloadAnalysis, geoRegion)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       const info = stmt.run(
         report.url,
@@ -200,8 +215,15 @@ async function startServer() {
         JSON.stringify(report.metrics),
         JSON.stringify(report.suggestions),
         report.headers,
-        JSON.stringify(report.diagnosis)
+        JSON.stringify(report.diagnosis),
+        JSON.stringify(report.rateLimit),
+        JSON.stringify(report.payloadAnalysis),
+        report.geoRegion
       );
+
+      // Start uptime monitor for this URL
+      startUptimeMonitor(url);
+
       res.json({ id: info.lastInsertRowid, ...report, metrics: report.metrics, suggestions: report.suggestions });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -218,6 +240,21 @@ async function startServer() {
     })));
   });
 
+  // --- NEW: Trends Endpoint ---
+  app.get("/api/history/trends", (req, res) => {
+    const { url } = req.query;
+    if (!url) return res.status(400).json({ error: "URL query parameter is required" });
+
+    const rows = db.prepare(`
+      SELECT timestamp, score, metrics 
+      FROM history 
+      WHERE url = ? 
+      ORDER BY timestamp ASC
+    `).all(url);
+
+    res.json(getPerformanceTrends(rows));
+  });
+
   app.get("/api/history/:id", (req, res) => {
     const row: any = db.prepare("SELECT * FROM history WHERE id = ?").get(req.params.id);
     if (!row) return res.status(404).json({ error: "Report not found" });
@@ -226,8 +263,39 @@ async function startServer() {
       metrics: JSON.parse(row.metrics),
       suggestions: JSON.parse(row.suggestions),
       headers: JSON.parse(row.headers),
-      diagnosis: row.diagnosis ? JSON.parse(row.diagnosis) : null
+      diagnosis: row.diagnosis ? JSON.parse(row.diagnosis) : null,
+      rateLimit: row.rateLimit ? JSON.parse(row.rateLimit) : null,
+      payloadAnalysis: row.payloadAnalysis ? JSON.parse(row.payloadAnalysis) : null,
+      geoRegion: row.geoRegion
     });
+  });
+
+  // --- NEW: Production API Routes ---
+  app.get("/api/uptime", (req, res) => {
+    const { url } = req.query;
+    if (!url) return res.status(400).json({ error: "URL is required" });
+    res.json(getUptimeStats(url as string));
+  });
+
+  app.get("/api/report/pdf/:id", async (req, res) => {
+    try {
+      const row: any = db.prepare("SELECT * FROM history WHERE id = ?").get(req.params.id);
+      if (!row) return res.status(404).json({ error: "Report not found" });
+
+      const reportData = {
+        ...row,
+        metrics: JSON.parse(row.metrics),
+        suggestions: JSON.parse(row.suggestions),
+        diagnosis: row.diagnosis ? JSON.parse(row.diagnosis) : null
+      };
+
+      const pdfBuffer = await generatePDFReport(reportData);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=APEX-Report-${req.params.id}.pdf`);
+      res.send(pdfBuffer);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
   });
 
   // --- NEW: Comparison Endpoint ---

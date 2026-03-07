@@ -53,6 +53,21 @@ export interface AnalysisReport {
     issues: string[];
     recommendations: string[];
   };
+  rateLimit?: {
+    rateLimitDetected: boolean;
+    limitHeader?: number;
+    remaining?: number;
+    retryAfter?: number;
+    recommendation?: string;
+  };
+  payloadAnalysis?: {
+    averageResponseSize: number;
+    maxSize: number;
+    minSize: number;
+    efficiencyRating: string;
+    compressionRecommendation?: string;
+  };
+  aiAdvice?: string;
 }
 
 export interface ComparisonResult {
@@ -77,7 +92,8 @@ export const analyzeApi = async (
   requests: number,
   simulateSlowNetwork: boolean,
   headers: Record<string, string> = {},
-  body?: string
+  body?: string,
+  geoRegion: string = 'None'
 ): Promise<AnalysisReport> => {
   const response = await api.post('/analyze', {
     url,
@@ -86,7 +102,8 @@ export const analyzeApi = async (
     requests,
     simulateSlowNetwork,
     headers,
-    body
+    body,
+    geoRegion
   });
   return response.data;
 };
