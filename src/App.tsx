@@ -16,7 +16,14 @@ import {
   Info,
   Rocket,
   ZapIcon,
-  ServerCrash
+  ServerCrash,
+  Settings2,
+  Plus,
+  Trash2,
+  Key,
+  FileJson,
+  Download,
+  BarChart as BarChartIcon
 } from 'lucide-react';
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -62,6 +69,13 @@ ChartJS.register(
   Filler
 );
 
+interface ComparisonRequest {
+  url: string;
+  method: string;
+  concurrency: number;
+  requests: number;
+}
+
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
@@ -73,11 +87,11 @@ const Card = ({ children, className, delay = 0, ...props }: { children: React.Re
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.5, delay, ease: "easeOut" }}
-    className={cn("glass rounded-2xl p-6 hover:shadow-[0_8px_32px_rgba(34,197,94,0.1)] transition-shadow duration-300 relative overflow-hidden", className)}
+    className={cn("glass rounded-2xl p-6 hover:shadow-[0_8px_32px_rgba(34,197,94,0.1)] transition-shadow duration-300 relative overflow-hidden flex flex-col", className)}
     {...props}
   >
     <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-    <div className="relative z-10">{children}</div>
+    <div className="relative z-10 flex-1 w-full h-full flex flex-col">{children}</div>
   </motion.div>
 );
 
@@ -145,6 +159,7 @@ const TopNav = () => {
   const location = useLocation();
   const navItems = [
     { path: '/', label: 'Analysis', icon: ZapIcon },
+    { path: '/analytics', label: 'Analytics', icon: BarChartIcon },
     { path: '/compare', label: 'Compare APIs', icon: Activity },
     { path: '/history', label: 'History', icon: History }
   ];
@@ -197,6 +212,9 @@ const Dashboard = () => {
   const [concurrency, setConcurrency] = useState(5);
   const [requests, setRequests] = useState(50);
   const [simulateSlowNetwork, setSimulateSlowNetwork] = useState(false);
+  const [headers, setHeaders] = useState<{ key: string; value: string }[]>([{ key: '', value: '' }]);
+  const [body, setBody] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -212,7 +230,12 @@ const Dashboard = () => {
     setLoading(true);
     setError(null);
     try {
-      const report = await analyzeApi(url, method, concurrency, requests, simulateSlowNetwork);
+      const headerObj = headers.reduce((acc, curr) => {
+        if (curr.key.trim()) acc[curr.key.trim()] = curr.value;
+        return acc;
+      }, {} as Record<string, string>);
+
+      const report = await analyzeApi(url, method, concurrency, requests, simulateSlowNetwork, headerObj, body || undefined);
       navigate(`/report/${report.id}`);
     } catch (err: any) {
       setError(err.response?.data?.error || err.message);
@@ -312,6 +335,92 @@ const Dashboard = () => {
               Simulate Slow Network (Adds 200-500ms latency per request)
             </label>
           </div>
+
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="text-xs font-bold text-emerald-400/70 hover:text-emerald-400 flex items-center gap-2 transition-colors uppercase tracking-widest"
+            >
+              <Settings2 className={cn("w-3.5 h-3.5 transition-transform duration-300", showAdvanced && "rotate-90")} />
+              {showAdvanced ? "Hide Advanced Settings" : "Configure Headers & Body"}
+            </button>
+          </div>
+
+          <AnimatePresence>
+            {showAdvanced && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden space-y-6"
+              >
+                <div className="pt-4 border-t border-white/5 space-y-4">
+                  <div className="space-y-3">
+                    <label className="text-xs font-bold text-zinc-500 uppercase flex items-center gap-2">
+                      <Key className="w-3 h-3" /> Custom Headers
+                    </label>
+                    <div className="space-y-2">
+                      {headers.map((h, i) => (
+                        <div key={i} className="flex gap-2">
+                          <input
+                            placeholder="Key (e.g. Authorization)"
+                            value={h.key}
+                            onChange={(e) => {
+                              const newHeaders = [...headers];
+                              newHeaders[i].key = e.target.value;
+                              setHeaders(newHeaders);
+                            }}
+                            className="flex-1 bg-zinc-900/50 border border-zinc-800 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-emerald-500/30"
+                          />
+                          <input
+                            placeholder="Value"
+                            value={h.value}
+                            onChange={(e) => {
+                              const newHeaders = [...headers];
+                              newHeaders[i].value = e.target.value;
+                              setHeaders(newHeaders);
+                            }}
+                            className="flex-1 bg-zinc-900/50 border border-zinc-800 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-emerald-500/30"
+                          />
+                          {headers.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => setHeaders(headers.filter((_, idx) => idx !== i))}
+                              className="p-2 text-zinc-600 hover:text-red-400 transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setHeaders([...headers, { key: '', value: '' }])}
+                        className="text-[10px] font-bold text-zinc-500 hover:text-emerald-400 flex items-center gap-1 transition-colors uppercase"
+                      >
+                        <Plus className="w-3 h-3" /> Add Header
+                      </button>
+                    </div>
+                  </div>
+
+                  {['POST', 'PUT', 'PATCH'].includes(method) && (
+                    <div className="space-y-3 pt-4">
+                      <label className="text-xs font-bold text-zinc-500 uppercase flex items-center gap-2">
+                        <FileJson className="w-3 h-3" /> Request Body (JSON)
+                      </label>
+                      <textarea
+                        value={body}
+                        onChange={(e) => setBody(e.target.value)}
+                        placeholder='{ "key": "value" }'
+                        className="w-full h-32 bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-3 text-xs font-mono focus:ring-1 focus:ring-emerald-500/30 resize-none"
+                      />
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {error && (
             <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-start gap-3 text-red-400 text-sm">
@@ -437,6 +546,42 @@ const ReportView = () => {
     URL.revokeObjectURL(url);
   };
 
+  const handleExportCSV = () => {
+    if (!report) return;
+    const headers = ['Metric', 'Value'];
+    const rows = [
+      ['URL', report.url],
+      ['Method', report.method],
+      ['Grade', report.grade || 'N/A'],
+      ['Score', `${report.score}%`],
+      ['Avg Latency', `${report.metrics.avgLatency.toFixed(2)}ms`],
+      ['P95 Latency', `${report.metrics.p95Latency.toFixed(2)}ms`],
+      ['Throughput', `${report.metrics.throughput} RPS`],
+      ['Total Requests', report.metrics.totalRequests],
+      ['Successful', report.metrics.successful],
+      ['Failed', report.metrics.failed],
+      ['Success Rate', `${((report.metrics.successful / report.metrics.totalRequests) * 100).toFixed(2)}%`],
+      ['Min Latency', `${report.metrics.minLatency}ms`],
+      ['Max Latency', `${report.metrics.maxLatency}ms`],
+      ['Avg Payload', `${(report.metrics.avgSize / 1024).toFixed(2)}KB`],
+    ];
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `apoa-report-${report.id}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleCopyReport = () => {
     if (!report) return;
     const summary = `
@@ -486,16 +631,17 @@ ${report.diagnosis?.issues[0] || "None - Perfect Optimization"}
             Copy Summary
           </button>
           <button
+            onClick={handleExportCSV}
+            className="px-4 py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 hover:border-emerald-400 rounded-xl text-sm font-bold transition-all flex items-center gap-2"
+          >
+            <Download className="w-4 h-4" />
+            CSV Export
+          </button>
+          <button
             onClick={handleExportJson}
             className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-sm font-medium transition-colors"
           >
-            Export JSON
-          </button>
-          <button
-            onClick={() => window.print()}
-            className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-sm font-medium transition-colors"
-          >
-            Export PDF
+            JSON
           </button>
           <Link to="/" className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black rounded-xl text-sm font-bold transition-colors">
             New Analysis
@@ -503,12 +649,14 @@ ${report.diagnosis?.issues[0] || "None - Perfect Optimization"}
         </div>
       </div>
 
-      {report.metrics.coldStart?.coldStartDetected && (
-        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-start gap-3 text-amber-400 text-sm mt-4">
-          <AlertCircle className="w-5 h-5 shrink-0" />
-          {report.metrics.coldStart.message}
-        </div>
-      )}
+      {
+        report.metrics.coldStart?.coldStartDetected && (
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-start gap-3 text-amber-400 text-sm mt-4">
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            {report.metrics.coldStart.message}
+          </div>
+        )
+      }
 
       <div className="grid grid-cols-12 gap-8 mt-8">
         {/* Score Breakdown */}
@@ -569,6 +717,17 @@ ${report.diagnosis?.issues[0] || "None - Perfect Optimization"}
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {percentileData.map((p, i) => (
+              <Card key={i} className="p-4 flex flex-col justify-between">
+                <p className="text-[10px] uppercase font-bold text-zinc-500 mb-1">{p.label}</p>
+                <p className="text-2xl font-bold text-white">{p.value}</p>
+              </Card>
+            ))}
+          </div>
+        </Card>
+
+        <Card className="col-span-12 lg:col-span-12">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {percentileData.map((p, i) => (
               <div key={i} className="bg-zinc-900/50 p-4 rounded-xl border border-white/5 text-center">
                 <p className="text-[10px] uppercase font-bold text-zinc-500 mb-1">{p.label}</p>
                 <p className="text-2xl font-bold text-white">{p.value}</p>
@@ -598,7 +757,7 @@ ${report.diagnosis?.issues[0] || "None - Perfect Optimization"}
                 stroke="#3b82f6"
                 strokeWidth={2}
                 dot={false}
-                isAnimationActive={false}
+                animationDuration={500}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -662,7 +821,7 @@ ${report.diagnosis?.issues[0] || "None - Perfect Optimization"}
                   outerRadius={80}
                   paddingAngle={5}
                   dataKey="value"
-                  isAnimationActive={false}
+                  animationDuration={500}
                 >
                   {successRateData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
@@ -883,13 +1042,13 @@ ${report.diagnosis?.issues[0] || "None - Perfect Optimization"}
           </div>
         </div>
       </div>
-    </div>
+    </div >
   );
 };
 
 const ComparisonView = () => {
-  const [apiA, setApiA] = useState({ url: '', method: 'GET', concurrency: 5, requests: 50 });
-  const [apiB, setApiB] = useState({ url: '', method: 'GET', concurrency: 5, requests: 50 });
+  const [apiA, setApiA] = useState<ComparisonRequest>({ url: '', method: 'GET', concurrency: 1, requests: 10 });
+  const [apiB, setApiB] = useState<ComparisonRequest>({ url: '', method: 'GET', concurrency: 1, requests: 10 });
   const [result, setResult] = useState<ComparisonResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1018,13 +1177,15 @@ const ComparisonView = () => {
                 <p className="text-emerald-400/80 text-sm">{result.comparisonSummary}</p>
               </div>
             </div>
-            <button onClick={() => setResult(null)} className="px-6 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-sm font-medium transition-colors border border-white/5">
-              Reset Comparison
-            </button>
+            <div className="flex gap-2 print:hidden">
+              <button onClick={() => setResult(null)} className="px-6 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-sm font-medium transition-colors border border-white/5">
+                Reset Comparison
+              </button>
+            </div>
           </Card>
 
           {/* Radar Chart Visual Comparison */}
-          <Card className="p-6">
+          <Card className="p-6" >
             <h3 className="text-lg font-semibold mb-6 flex items-center gap-2 text-zinc-300">
               <Activity className="w-5 h-5 text-purple-400" /> Multi-dimensional Analysis
             </h3>
@@ -1103,7 +1264,7 @@ const ComparisonView = () => {
                     <Zap className="w-3 h-3" /> WINNER
                   </div>
                 )}
-                <Card className={cn("p-6", result.winner === api.id && "bg-emerald-500/5")}>
+                <Card className={cn("p-6", result.winner === api.id && "bg-emerald-500/5")} >
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
                       <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg", `bg-${api.color}-500/20 text-${api.color}-400 border border-${api.color}-500/30`)}>
@@ -1164,6 +1325,121 @@ const ComparisonView = () => {
   );
 };
 
+const AnalyticsView = () => {
+  const [history, setHistory] = useState<AnalysisReport[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getHistory().then(setHistory).finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="flex items-center justify-center h-96"><Loader2 className="w-8 h-8 animate-spin text-emerald-500" /></div>;
+
+  const totalTests = history.length;
+  const avgScore = history.reduce((acc, curr) => acc + curr.score, 0) / (totalTests || 1);
+  const avgLatency = history.reduce((acc, curr) => acc + (curr.metrics?.avgLatency || 0), 0) / (totalTests || 1);
+  const totalSuccessful = history.reduce((acc, curr) => acc + (curr.metrics?.successful || 0), 0);
+  const totalRequests = history.reduce((acc, curr) => acc + (curr.metrics?.totalRequests || 0), 0);
+  const successRate = totalRequests > 0 ? (totalSuccessful / totalRequests) * 100 : 0;
+
+  const methodDistribution = history.reduce((acc, curr) => {
+    acc[curr.method] = (acc[curr.method] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const methodData = Object.entries(methodDistribution).map(([name, value]) => ({ name, value }));
+  const trendData = history.slice(-20).map(h => ({
+    name: format(new Date(h.timestamp!), 'MMM d'),
+    score: h.score,
+    latency: h.metrics?.avgLatency || 0
+  }));
+
+  const COLORS = ['#10b981', '#3b82f6', '#a855f7', '#f59e0b'];
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-700">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-emerald-200 bg-clip-text text-transparent">Project Analytics</h1>
+          <p className="text-zinc-500 mt-1">Global performance overview across {totalTests} tests.</p>
+        </div>
+        <Link to="/" className="px-4 py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 rounded-xl text-sm font-bold transition-all">
+          Run New Test
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        {[
+          { label: 'Total Analyzed', value: totalTests, icon: Activity, color: 'text-emerald-400' },
+          { label: 'Avg Fleet Score', value: `${avgScore.toFixed(1)}%`, icon: Zap, color: 'text-blue-400' },
+          { label: 'Fleet Latency', value: `${avgLatency.toFixed(0)}ms`, icon: Clock, color: 'text-purple-400' },
+          { label: 'Overall Stability', value: `${successRate.toFixed(1)}%`, icon: Shield, color: 'text-amber-400' },
+        ].map((s, i) => (
+          <Card key={i} className="p-6">
+            <s.icon className={cn("w-6 h-6 mb-4", s.color)} />
+            <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">{s.label}</p>
+            <p className="text-3xl font-bold mt-1">{s.value}</p>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-12 gap-8">
+        <Card className="col-span-12 lg:col-span-8 h-[400px]">
+          <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
+            <BarChartIcon className="w-5 h-5 text-blue-400" /> Performance Trends (Last 20)
+          </h3>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={trendData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
+                <XAxis dataKey="name" stroke="#6b7280" fontSize={10} />
+                <YAxis yAxisId="left" stroke="#3b82f6" fontSize={10} />
+                <YAxis yAxisId="right" orientation="right" stroke="#10b981" fontSize={10} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
+                />
+                <Line yAxisId="left" type="monotone" dataKey="latency" stroke="#3b82f6" strokeWidth={2} dot={false} />
+                <Line yAxisId="right" type="monotone" dataKey="score" stroke="#10b981" strokeWidth={3} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+
+        <Card className="col-span-12 lg:col-span-4 h-[400px]">
+          <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
+            <Zap className="w-5 h-5 text-purple-400" /> Method Mix
+          </h3>
+          <div className="h-[250px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={methodData}
+                  cx="50%" cy="50%"
+                  innerRadius={60} outerRadius={80}
+                  paddingAngle={5} dataKey="value"
+                >
+                  {methodData.map((_, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex flex-wrap justify-center gap-4 mt-4">
+            {methodData.map((m, i) => (
+              <div key={m.name} className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                <span className="text-[10px] text-zinc-500 font-bold uppercase">{m.name} ({m.value})</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
 const HistoryView = () => {
   const [history, setHistory] = useState<AnalysisReport[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1183,28 +1459,28 @@ const HistoryView = () => {
         </Link>
       </div>
 
-      <div className="grid gap-4">
-        {history.length > 0 ? history.map((h) => (
-          <Link key={h.id} to={`/report/${h.id}`}>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {history.length > 0 ? history.map((report) => (
+          <Link key={report.id} to={`/report/${report.id}`}>
             <Card className="p-4 hover:bg-white/10 transition-all group">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className={cn(
                     "w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg",
-                    h.score >= 90 ? "bg-emerald-500/10 text-emerald-400" :
-                      h.score >= 75 ? "bg-blue-500/10 text-blue-400" :
-                        h.score >= 60 ? "bg-amber-500/10 text-amber-400" :
+                    report.score >= 90 ? "bg-emerald-500/10 text-emerald-400" :
+                      report.score >= 75 ? "bg-blue-500/10 text-blue-400" :
+                        report.score >= 60 ? "bg-amber-500/10 text-amber-400" :
                           "bg-red-500/10 text-red-400"
                   )}>
-                    {h.score}
+                    {report.score}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <Badge>{h.method}</Badge>
-                      <h3 className="font-mono text-sm font-semibold truncate max-w-md">{h.url}</h3>
+                      <Badge>{report.method}</Badge>
+                      <h3 className="font-mono text-sm font-semibold truncate max-w-md">{report.url}</h3>
                     </div>
                     <p className="text-xs text-zinc-500 mt-1">
-                      {format(new Date(h.timestamp!), 'PP p')} • {h.metrics.avgLatency.toFixed(0)}ms avg • {h.metrics.throughput} RPS
+                      {format(new Date(report.timestamp!), 'PP p')} • {report.metrics.avgLatency.toFixed(0)}ms avg • {report.metrics.throughput} RPS
                     </p>
                   </div>
                 </div>
@@ -1228,15 +1504,11 @@ const HistoryView = () => {
 
 const Layout = ({ children }: { children: React.ReactNode }) => {
   return (
-    <div className="min-h-screen text-zinc-100 flex flex-col relative overflow-hidden">
+    <div
+      id="app-layout"
+      className="text-zinc-100 flex flex-col relative min-h-screen overflow-hidden"
+    >
       {/* Decorative Background Elements */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-emerald-500/10 blur-[120px] rounded-full pointer-events-none" />
-      <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-blue-500/10 blur-[150px] rounded-full pointer-events-none" />
-      <div className="absolute top-1/2 left-0 w-[400px] h-[400px] bg-purple-500/10 blur-[150px] rounded-full pointer-events-none" />
-
-      <TopNav />
-
-      {/* Main Content */}
       <main className="flex-1 max-w-6xl w-full mx-auto p-6 md:p-8 relative z-10 animate-in fade-in duration-700">
         <AnimatePresence mode="wait">
           {children}
@@ -1257,13 +1529,17 @@ export default function App() {
 function AppContent() {
   const location = useLocation();
   return (
-    <Layout>
-      <Routes location={location}>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/compare" element={<ComparisonView />} />
-        <Route path="/history" element={<HistoryView />} />
-        <Route path="/report/:id" element={<ReportView />} />
-      </Routes>
-    </Layout>
+    <>
+      <TopNav />
+      <Layout>
+        <Routes location={location}>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/analytics" element={<AnalyticsView />} />
+          <Route path="/compare" element={<ComparisonView />} />
+          <Route path="/history" element={<HistoryView />} />
+          <Route path="/report/:id" element={<ReportView />} />
+        </Routes>
+      </Layout>
+    </>
   );
 }

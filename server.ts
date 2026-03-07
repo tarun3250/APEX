@@ -63,6 +63,8 @@ async function analyzeApi(url: string, method: string = "GET", concurrency: numb
         const response = await axios({
           url,
           method,
+          headers: reqBody.headers || {},
+          data: reqBody.body ? JSON.parse(reqBody.body) : undefined,
           timeout: 15000,
           validateStatus: () => true,
         });
@@ -181,7 +183,7 @@ async function startServer() {
 
   // API Routes
   app.post("/api/analyze", async (req, res) => {
-    const { url, method, concurrency, requests } = req.body;
+    const { url, method, concurrency, requests, headers, body } = req.body;
     if (!url) return res.status(400).json({ error: "URL is required" });
 
     try {

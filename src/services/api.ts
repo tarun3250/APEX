@@ -70,8 +70,24 @@ export interface TrendData {
   throughput: string;
 }
 
-export const analyzeApi = async (url: string, method: string, concurrency: number, requests: number, simulateSlowNetwork: boolean): Promise<AnalysisReport> => {
-  const response = await api.post('/analyze', { url, method, concurrency, requests, simulateSlowNetwork });
+export const analyzeApi = async (
+  url: string,
+  method: string,
+  concurrency: number,
+  requests: number,
+  simulateSlowNetwork: boolean,
+  headers: Record<string, string> = {},
+  body?: string
+): Promise<AnalysisReport> => {
+  const response = await api.post('/analyze', {
+    url,
+    method,
+    concurrency,
+    requests,
+    simulateSlowNetwork,
+    headers,
+    body
+  });
   return response.data;
 };
 
