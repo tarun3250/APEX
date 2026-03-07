@@ -133,6 +133,11 @@ async function analyzeApi(url: string, method: string = "GET", concurrency: numb
   const firstSuccess = results.find(r => r.success) || results[0];
   const headers = firstSuccess?.headers || {};
 
+  // --- NEW: Analytics Services Integration ---
+  const latencyTimeline = getLatencyTimeline(latencies);
+  const coldStart = detectColdStart(latencies, avgLatency);
+  const securityAudit = analyzeSecurityHeaders(headers as Record<string, string>);
+
   // --- NEW: Advanced Scoring ---
   const metricsData = {
     totalRequests: results.length,
@@ -141,15 +146,19 @@ async function analyzeApi(url: string, method: string = "GET", concurrency: numb
     avgLatency,
     avgSize,
     throughput,
+    minLatency,
+    maxLatency,
+    medianLatency,
+    p95Latency,
+    ...percentiles,
+    latencyDistribution: latencies,
+    latencyTimeline,
+    coldStart,
+    securityAudit,
     breakdown: {} as any
   };
   const { score, grade, breakdown } = calculateAdvancedScore(metricsData, headers);
   metricsData.breakdown = breakdown;
-
-  // --- NEW: Analytics Services Integration ---
-  const latencyTimeline = getLatencyTimeline(latencies);
-  const coldStart = detectColdStart(latencies, avgLatency);
-  const securityAudit = analyzeSecurityHeaders(headers as Record<string, string>);
 
   // --- NEW: Bottleneck Diagnosis ---
   const diagnosis = diagnoseBottlenecks({ ...metricsData, maxLatency }, percentiles);
