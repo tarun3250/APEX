@@ -1,8 +1,6 @@
 import cron from 'node-cron';
 import axios from 'axios';
-import Database from 'better-sqlite3';
-
-const db = new Database("apoa.db");
+import { db } from '../config/database.js';
 
 // Initialize uptime table
 db.exec(`

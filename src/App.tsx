@@ -281,7 +281,7 @@ const Dashboard = () => {
         </p>
       </motion.div>
 
-      <Card className="p-8">
+      <Card className="p-8" children={undefined}>
         <form onSubmit={handleAnalyze} className="space-y-6">
           <div className="space-y-2">
             <label className="text-sm font-medium text-zinc-400 flex items-center gap-2">
@@ -508,21 +508,21 @@ const Dashboard = () => {
       </motion.div>
 
       <div className="grid grid-cols-3 gap-6">
-        <Card delay={0.4} className="flex flex-col items-center text-center space-y-2">
+        <Card delay={0.4} className="flex flex-col items-center text-center space-y-2" children={undefined}>
           <div className="p-3 bg-blue-500/10 rounded-2xl text-blue-400">
             <BarChart3 className="w-6 h-6" />
           </div>
           <h3 className="font-semibold">Latency Analysis</h3>
           <p className="text-xs text-zinc-500">P95, Median, and Average response times.</p>
         </Card>
-        <Card delay={0.5} className="flex flex-col items-center text-center space-y-2">
+        <Card delay={0.5} className="flex flex-col items-center text-center space-y-2" children={undefined}>
           <div className="p-3 bg-emerald-500/10 rounded-2xl text-emerald-400">
             <Shield className="w-6 h-6" />
           </div>
           <h3 className="font-semibold">Security Audit</h3>
           <p className="text-xs text-zinc-500">HSTS, CSP, and CORS header validation.</p>
         </Card>
-        <Card delay={0.6} className="flex flex-col items-center text-center space-y-2">
+        <Card delay={0.6} className="flex flex-col items-center text-center space-y-2" children={undefined}>
           <div className="p-3 bg-amber-500/10 rounded-2xl text-amber-400">
             <Zap className="w-6 h-6" />
           </div>
@@ -645,9 +645,9 @@ ${report.diagnosis?.issues[0] || "None - Perfect Optimization"}
       <div className="flex items-start justify-between">
         <div className="space-y-1">
           <div className="flex items-center gap-3">
-            <Badge variant="default">{report.method}</Badge>
+            <Badge variant="default" children={undefined}>{report.method}</Badge>
             <h1 className="text-2xl font-bold font-mono truncate max-w-xl">{report.url}</h1>
-            <Badge variant={report.grade === 'A' ? 'success' : report.grade === 'B' ? 'default' : 'warning'}>
+            <Badge variant={report.grade === 'A' ? 'success' : report.grade === 'B' ? 'default' : 'warning'} children={undefined}>
               Grade {report.grade}
             </Badge>
           </div>
@@ -690,7 +690,7 @@ ${report.diagnosis?.issues[0] || "None - Perfect Optimization"}
 
       <div className="grid grid-cols-12 gap-8 mt-8">
         {/* Score Breakdown */}
-        <Card className="col-span-12 lg:col-span-4 flex flex-col items-center justify-center space-y-6">
+        <Card className="col-span-12 lg:col-span-4 flex flex-col items-center justify-center space-y-6" children={undefined}>
           <h2 className="text-lg font-semibold text-zinc-400">Weighted Score</h2>
           <ScoreCircle score={report.score} />
           {report.metrics.breakdown && (
@@ -730,7 +730,7 @@ ${report.diagnosis?.issues[0] || "None - Perfect Optimization"}
             { label: 'Avg Payload', value: `${(report.metrics.avgSize / 1024).toFixed(1)}KB`, icon: Database, color: 'text-zinc-400' },
             { label: 'Total Requests', value: report.metrics.totalRequests, icon: Info, color: 'text-zinc-400' },
           ].map((stat, i) => (
-            <Card key={i} className="p-4 flex flex-col justify-between">
+            <Card key={i} className="p-4 flex flex-col justify-between" children={undefined}>
               <stat.icon className={cn("w-5 h-5 mb-2", stat.color)} />
               <div>
                 <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">{stat.label}</p>
@@ -741,13 +741,13 @@ ${report.diagnosis?.issues[0] || "None - Perfect Optimization"}
         </div>
 
         {/* Extended Percentiles */}
-        <Card className="col-span-12 lg:col-span-12">
+        <Card className="col-span-12 lg:col-span-12" children={undefined}>
           <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
             <BarChart3 className="w-5 h-5 text-blue-400" /> Statistical Percentiles
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {percentileData.map((p, i) => (
-              <Card key={i} className="p-4 flex flex-col justify-between">
+              <Card key={i} className="p-4 flex flex-col justify-between" children={undefined}>
                 <p className="text-[10px] uppercase font-bold text-zinc-500 mb-1">{p.label}</p>
                 <p className="text-2xl font-bold text-white">{p.value}</p>
               </Card>
@@ -756,7 +756,7 @@ ${report.diagnosis?.issues[0] || "None - Perfect Optimization"}
         </Card>
 
         {/* Latency Chart */}
-        <Card className="col-span-12 lg:col-span-8 h-[400px]">
+        <Card className="col-span-12 lg:col-span-8 h-[400px]" children={undefined}>
           <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
             <Activity className="w-5 h-5 text-blue-400" /> Latency Distribution
           </h3>
@@ -783,7 +783,7 @@ ${report.diagnosis?.issues[0] || "None - Perfect Optimization"}
         </Card>
 
         {/* Availability Pie */}
-        <Card className="col-span-12 lg:col-span-4 h-[400px] flex flex-col">
+        <Card className="col-span-12 lg:col-span-4 h-[400px] flex flex-col" children={undefined}>
           <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5 text-emerald-400" /> Availability
           </h3>
@@ -822,7 +822,7 @@ ${report.diagnosis?.issues[0] || "None - Perfect Optimization"}
 
         {/* Performance Trends */}
         {trends.length > 1 && (
-          <Card className="col-span-12 h-[350px]">
+          <Card className="col-span-12 h-[350px]" children={undefined}>
             <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
               <History className="w-5 h-5 text-purple-400" /> Performance Trends
             </h3>
@@ -899,7 +899,7 @@ ${report.diagnosis?.issues[0] || "None - Perfect Optimization"}
 
         {/* Bottleneck Diagnosis */}
         {report.diagnosis && (report.diagnosis.issues.length > 0 || report.diagnosis.recommendations.length > 0) && (
-          <Card className="col-span-12 border-amber-500/20 bg-amber-500/5">
+          <Card className="col-span-12 border-amber-500/20 bg-amber-500/5" children={undefined}>
             <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-amber-400">
               <AlertCircle className="w-5 h-5" /> Performance Diagnosis
             </h3>
@@ -960,7 +960,7 @@ ${report.diagnosis?.issues[0] || "None - Perfect Optimization"}
             <Shield className="w-5 h-5 text-emerald-400" /> Security Audit
           </h3>
           {report.metrics.securityAudit ? (
-            <Card className="p-0 overflow-hidden text-sm">
+            <Card className="p-0 overflow-hidden text-sm" children={undefined}>
               <div className="p-4 bg-emerald-500/10 border-b border-white/5 font-semibold text-emerald-400 flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4" /> Detected Headers ({report.metrics.securityAudit.detectedHeaders.length})
               </div>
@@ -996,7 +996,7 @@ ${report.diagnosis?.issues[0] || "None - Perfect Optimization"}
         {/* Performance Cards */}
         <div className="col-span-12 grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Rate Limit Diagnostics */}
-          <Card className={cn("p-6", report.rateLimit?.rateLimitDetected ? "border-red-500/30 bg-red-500/5" : "border-white/5")}>
+          <Card className={cn("p-6", report.rateLimit?.rateLimitDetected ? "border-red-500/30 bg-red-500/5" : "border-white/5")} children={undefined}>
             <h3 className="text-zinc-400 text-sm font-medium mb-4 uppercase tracking-wider italic flex items-center gap-2">
               <ShieldAlert className={cn("w-4 h-4", report.rateLimit?.rateLimitDetected ? "text-red-400" : "text-zinc-500")} />
               Rate Limit Diagnostics
@@ -1026,7 +1026,7 @@ ${report.diagnosis?.issues[0] || "None - Perfect Optimization"}
           </Card>
 
           {/* Payload Efficiency */}
-          <Card className="p-6 border-white/5">
+          <Card className="p-6 border-white/5" children={undefined}>
             <h3 className="text-zinc-400 text-sm font-medium mb-4 uppercase tracking-wider italic flex items-center gap-2">
               <Archive className="w-4 h-4 text-emerald-400" /> Payload Efficiency
             </h3>
@@ -1106,7 +1106,7 @@ const ComparisonView = () => {
       </div>
 
       {!result ? (
-        <Card className="p-8">
+        <Card className="p-8" children={undefined}>
           <form onSubmit={handleCompare} className="space-y-8">
             <div className="grid md:grid-cols-2 gap-12">
               {/* API A */}
@@ -1198,7 +1198,7 @@ const ComparisonView = () => {
           animate={{ opacity: 1, scale: 1 }}
           className="space-y-8"
         >
-          <Card className="bg-emerald-500/10 border-emerald-500/20 p-6 flex flex-col md:flex-row items-center justify-between gap-6">
+          <Card className="bg-emerald-500/10 border-emerald-500/20 p-6 flex flex-col md:flex-row items-center justify-between gap-6" children={undefined}>
             <div className="flex items-center gap-4">
               <div className="p-3 bg-emerald-500 rounded-2xl text-black shadow-[0_0_20px_rgba(16,185,129,0.4)]">
                 <CheckCircle2 className="w-8 h-8" />
@@ -1216,7 +1216,7 @@ const ComparisonView = () => {
           </Card>
 
           {/* Radar Chart Visual Comparison */}
-          <Card className="p-6" >
+          <Card className="p-6" children={undefined} >
             <h3 className="text-lg font-semibold mb-6 flex items-center gap-2 text-zinc-300">
               <Activity className="w-5 h-5 text-purple-400" /> Multi-dimensional Analysis
             </h3>
@@ -1295,7 +1295,7 @@ const ComparisonView = () => {
                     <Zap className="w-3 h-3" /> WINNER
                   </div>
                 )}
-                <Card className={cn("p-6", result.winner === api.id && "bg-emerald-500/5")} >
+                <Card className={cn("p-6", result.winner === api.id && "bg-emerald-500/5")} children={undefined} >
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
                       <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg", `bg-${api.color}-500/20 text-${api.color}-400 border border-${api.color}-500/30`)}>
@@ -1303,7 +1303,7 @@ const ComparisonView = () => {
                       </div>
                       <h3 className="font-mono text-sm font-bold truncate max-w-[200px]">{api.data.url}</h3>
                     </div>
-                    <Badge variant={api.data.grade === 'A' ? 'success' : 'default'}>Grade {api.data.grade}</Badge>
+                    <Badge variant={api.data.grade === 'A' ? 'success' : 'default'} children={undefined}>Grade {api.data.grade}</Badge>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -1406,7 +1406,7 @@ const AnalyticsView = () => {
           { label: 'Fleet Latency', value: `${avgLatency.toFixed(0)}ms`, icon: Clock, color: 'text-purple-400' },
           { label: 'Overall Stability', value: `${successRate.toFixed(1)}%`, icon: Shield, color: 'text-amber-400' },
         ].map((s, i) => (
-          <Card key={i} className="p-6">
+          <Card key={i} className="p-6" children={undefined}>
             <s.icon className={cn("w-6 h-6 mb-4", s.color)} />
             <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">{s.label}</p>
             <p className="text-3xl font-bold mt-1">{s.value}</p>
@@ -1415,7 +1415,7 @@ const AnalyticsView = () => {
       </div>
 
       <div className="grid grid-cols-12 gap-8">
-        <Card className="col-span-12 lg:col-span-8 h-[400px]">
+        <Card className="col-span-12 lg:col-span-8 h-[400px]" children={undefined}>
           <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
             <BarChartIcon className="w-5 h-5 text-blue-400" /> Performance Trends (Last 20)
           </h3>
@@ -1436,7 +1436,7 @@ const AnalyticsView = () => {
           </div>
         </Card>
 
-        <Card className="col-span-12 lg:col-span-4 h-[400px]">
+        <Card className="col-span-12 lg:col-span-4 h-[400px]" children={undefined}>
           <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
             <Zap className="w-5 h-5 text-purple-400" /> Method Mix
           </h3>
@@ -1493,7 +1493,7 @@ const HistoryView = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {history.length > 0 ? history.map((report) => (
           <Link key={report.id} to={`/report/${report.id}`}>
-            <Card className="p-4 hover:bg-white/10 transition-all group">
+            <Card className="p-4 hover:bg-white/10 transition-all group" children={undefined}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className={cn(
@@ -1507,7 +1507,7 @@ const HistoryView = () => {
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <Badge>{report.method}</Badge>
+                      <Badge children={undefined}>{report.method}</Badge>
                       <h3 className="font-mono text-sm font-semibold truncate max-w-md">{report.url}</h3>
                     </div>
                     <p className="text-xs text-zinc-500 mt-1">
@@ -1562,7 +1562,7 @@ function AppContent() {
   return (
     <>
       <TopNav />
-      <Layout>
+      <Layout children={undefined}>
         <Routes location={location}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/analytics" element={<AnalyticsView />} />
@@ -1604,7 +1604,7 @@ function UptimeView() {
         <p className="text-zinc-400">Track real-time uptime and incident history for your API endpoints.</p>
       </div>
 
-      <Card className="flex gap-4 p-4">
+      <Card className="flex gap-4 p-4" children={undefined}>
         <input
           value={url}
           onChange={(e) => setUrl(e.target.value)}
@@ -1618,7 +1618,7 @@ function UptimeView() {
 
       {uptimeData && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-bottom-4 duration-500">
-          <Card className="p-6 relative overflow-hidden group">
+          <Card className="p-6 relative overflow-hidden group" children={undefined}>
             <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
               <ShieldCheck className="w-24 h-24" />
             </div>
@@ -1629,14 +1629,14 @@ function UptimeView() {
             </div>
           </Card>
 
-          <Card className="p-6">
+          <Card className="p-6" children={undefined}>
             <h3 className="text-zinc-400 text-sm font-medium mb-4 uppercase tracking-wider italic">Last Downtime</h3>
             <div className="text-2xl font-semibold text-zinc-100">
               {uptimeData.lastDowntime ? new Date(uptimeData.lastDowntime).toLocaleString() : 'No downtime detected'}
             </div>
           </Card>
 
-          <Card className="col-span-full p-6">
+          <Card className="col-span-full p-6" children={undefined}>
             <h3 className="text-zinc-400 text-sm font-medium mb-4 uppercase tracking-wider italic">Incident Logs</h3>
             <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
               {uptimeData.logs.map((log: any, i: number) => (

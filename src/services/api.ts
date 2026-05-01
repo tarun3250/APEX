@@ -104,6 +104,10 @@ export const analyzeApi = async (
     headers,
     body,
     geoRegion
+  }, {
+    headers: {
+      'x-idempotency-key': crypto.randomUUID()
+    }
   });
   return response.data;
 };
